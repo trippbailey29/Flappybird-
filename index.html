@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Dragon</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #87CEEB; /* Sky blue */
+        }
+
+        canvas {
+            display: block;
+            margin: 0;
+            background-color: #87CEEB;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size to full screen
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Dragon and game variables
+        const dragonWidth = 60;
+        const dragonHeight = 60;
+        let dragonX = 150;
+        let dragonY = canvas.height / 2 - dragonHeight / 2;
+        let velocity = 0;
+        const gravity = 0.6;
+        const lift = -15;
+        let isFlapping = false;
+
+        // Pipes
+        const pipeWidth = 80;
+        let pipes = [];
+        const pipeGap = 200; // Space between pipes
+        let pipeSpeed = 2;
+
+        // Score
+        let score = 0;
+        let gameOver = false;
+        let gameStarted = false;
+
+        // Cloud background movement
+        let cloudSpeed = 0.5;
+        let clouds = [];
+
+        // Event listener for flapping (spacebar)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !gameOver) {
+                isFlapping = true;
+                if (!gameStarted) {
+                    gameStarted = true;
+                    resetGame();
+                }
+            }
+        });
+
+        // Cloud class
+        function Cloud(x, y) {
+            this.x = x;
+            this.y = y;
+            this.width = Math.random() * 200 + 100;
+            this.height = Math.random() * 60 + 40;
+
+            this.draw = function() {
+                ctx.fillStyle = '#FFFFFF'; // White clouds
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            };
+
+            this.update = function() {
+                this.x -= cloudSpeed;
+                if (this.x + this.width < 0) {
+                    this.x = canvas.width;
+                    this.y = Math.random() * 100 + 50;
+                }
+            };
+        }
+
+        // Pipe class
+        function Pipe(x) {
+            this.x = x;
+            this.width = pipeWidth;
+            this.topHeight = Math.floor(Math.random() * (canvas.height - pipeGap));
+            this.bottomHeight = canvas.height - this.topHeight - pipeGap;
+
+            this.draw = function() {
+                ctx.fillStyle = '#228B22'; // Green pipes
+                ctx.fillRect(this.x, 0, this.width, this.topHeight); // Top pipe
+                ctx.fillRect(this.x, canvas.height - this.bottomHeight, this.width, this.bottomHeight); // Bottom pipe
+            };
+
+            this.update = function() {
+                this.x -= pipeSpeed;
+            };
+        }
+
+        // Dragon class (visual representation of the dragon)
+        function Dragon(x, y) {
+            this.x = x;
+            this.y = y;
+            this.width = dragonWidth;
+            this.height = dragonHeight;
+
+            this.draw = function() {
+                ctx.fillStyle = '#FF6347'; // Dragon color
+                ctx.fillRect(this.x, this.y, this.width, this.height); // Dragon as a rectangle for now
+            };
+        }
+
+        // Update the game state
+        function updateGame() {
+            // Move dragon and pipes
+            if (isFlapping) {
+                velocity = lift;
+                isFlapping = false;
+            }
+            velocity += gravity;
+            dragonY += velocity;
+
+            // Check for pipe collision
+            pipes.forEach(pipe => {
+                if (pipe.x < dragonX + dragonWidth && pipe.x + pipeWidth > dragonX &&
+                    (dragonY < pipe.topHeight || dragonY + dragonHeight > canvas.height - pipe.bottomHeight)) {
+                    gameOver = true;
+                }
+            });
+
+            // Check for falling out of bounds
+            if (dragonY + dragonHeight > canvas.height || dragonY < 0) {
+                gameOver = true;
+            }
+
+            // Cloud movement
+            clouds.forEach(cloud => {
+                cloud.update();
+            });
+
+            // Pipe management
+            if (pipes.length === 0 || pipes[pipes.length - 1].x <= canvas.width - 200) {
+                pipes.push(new Pipe(canvas.width));
+            }
+            pipes.forEach(pipe => pipe.update());
+
+            // Remove pipes that go off-screen
+            pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
+
+            // Score calculation
+            pipes.forEach(pipe => {
+                if (pipe.x + pipe.width < dragonX && !pipe.passed) {
+                    score++;
+                    pipe.passed = true;
+                }
+            });
+
+            // Drawing everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the screen
+            clouds.forEach(cloud => cloud.draw());
+            pipes.forEach(pipe => pipe.draw());
+            dragon.draw();
+
+            // Draw score
+            ctx.fillStyle = '#000';
+            ctx.font = '30px Arial';
+            ctx.fillText('Score: ' + score, 20, 40);
+
+            // Game over screen
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '50px Arial';
+                ctx.fillText('Game Over', canvas.width / 2 - 150, canvas.height / 2);
+                ctx.font = '30px Arial';
+                ctx.fillText('Press Space to Restart', canvas.width / 2 - 140, canvas.height / 2 + 40);
+            } else {
+                requestAnimationFrame(updateGame); // Continue the game loop
+            }
+        }
+
+        // Reset the game state
+        function resetGame() {
+            dragonY = canvas.height / 2 - dragonHeight / 2;
+            velocity = 0;
+            pipes = [];
+            score = 0;
+            gameOver = false;
+            gameStarted = true;
+            clouds = [];
+
+            // Generate clouds
+            for (let i = 0; i < 5; i++) {
+                clouds.push(new Cloud(Math.random() * canvas.width, Math.random() * 100 + 50));
+            }
+
+            updateGame();
+        }
+    </script>
+</body>
+</html>
+
+Add index.html for GitHub Pages
+
+
